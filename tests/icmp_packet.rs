@@ -29,7 +29,7 @@ mod tests {
         let eth_expectation = EthernetFrame {
             source_mac: MacAddress([0x00, 0x1b, 0x21, 0x0f, 0x91, 0x9b]),
             dest_mac: MacAddress([0x00, 0x23, 0x54, 0x07, 0x93, 0x6c]),
-            ethertype: EtherType::IPv4,
+            ethertype: EtherType::IPv4
         };
         let ip_expectation = IPv4Header {
             version: 4,

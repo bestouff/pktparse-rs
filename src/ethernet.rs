@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn ethernet_frame_works() {
         let bytes = [0x00, 0x23, 0x54, 0x07, 0x93, 0x6c, /* dest MAC */
-                     0x00, 0x1b, 0x21, 0x0f, 0x91, 0x9b, /* src MAC */
+                     0x00, 0x1b, 0x21, 0x0f, 0x91, 0x9b, /* src MAC */ 
                      0x08, 0x00 // Ethertype
                     ];
         let expectation = EthernetFrame {
