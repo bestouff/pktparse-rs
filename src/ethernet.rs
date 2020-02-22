@@ -1,6 +1,6 @@
 //! Handles parsing of Ethernet headers
 
-use nom::Endianness::Big;
+use nom::number::Endianness::Big;
 use nom::IResult;
 use std::convert::TryFrom;
 

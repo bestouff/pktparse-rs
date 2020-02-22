@@ -1,7 +1,8 @@
 //! Handles parsing of TCP headers
 
-use nom::Endianness::Big;
-use nom::{be_u8, Err, IResult, Needed};
+use nom::number::streaming::be_u8;
+use nom::number::Endianness::Big;
+use nom::{Err, IResult, Needed};
 
 // TCP Header Format
 //
@@ -84,9 +85,9 @@ pub struct TcpHeader {
 }
 named!(dataof_res_flags<&[u8], (u8, u8, u8)>,
     bits!(tuple!(
-        take_bits!(u8, 4),
-        take_bits!(u8, 6),
-        take_bits!(u8, 6))));
+        take_bits!(4u8),
+        take_bits!(6u8),
+        take_bits!(6u8))));
 
 named!(tcp_parse<&[u8], TcpHeader>,
             do_parse!(src: u16!(Big) >>

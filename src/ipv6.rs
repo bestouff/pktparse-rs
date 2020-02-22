@@ -1,8 +1,9 @@
 //! Handles parsing of IPv6 headers
 
 use crate::ip::{self, IPProtocol};
-use nom::Endianness::Big;
-use nom::{be_u8, IResult};
+use nom::number::streaming::be_u8;
+use nom::number::Endianness::Big;
+use nom::IResult;
 use std::convert::TryFrom;
 use std::net::Ipv6Addr;
 
@@ -24,19 +25,26 @@ pub fn to_ipv6_address(i: &[u8]) -> Ipv6Addr {
     Ipv6Addr::from(<[u8; 16]>::try_from(i).unwrap())
 }
 
-named!(two_nibbles<&[u8], (u8, u8)>, bits!(pair!(take_bits!(u8, 4), take_bits!(u8, 4))));
+named!(two_nibbles<&[u8], (u8, u8)>, bits!(pair!(take_bits!(4u8), take_bits!(4u8))));
 named!(protocol<&[u8], IPProtocol>, map!(be_u8, ip::to_ip_protocol));
 named!(address<&[u8], Ipv6Addr>, map!(take!(16), to_ipv6_address));
 
+// see https://github.com/Geal/nom/issues/991#issuecomment-526073927
+named!(ipparse_aux<&[u8], u32>,
+    do_parse!(
+        fl : bits!(take_bits!(16u32)) >>
+        (fl)
+    ));
+
 /*
-ds: bits!(take_bits!(u8, 6)) >>
-ecn: bits!(take_bits!(u8, 2)) >>
-flow_label: bits!(take_bits!(u32, 20)) >>
+ds: bits!(take_bits!(6u8)) >>
+ecn: bits!(take_bits!(2u8)) >>
+flow_label: bits!(take_bits!(20u32)) >>
 */
 named!(ipparse<&[u8], IPv6Header>,
     do_parse!(ver_tc : two_nibbles >>
         tc_fl : two_nibbles >>
-        fl : bits!(take_bits!(u32, 16)) >>
+        fl : ipparse_aux >>
         length : u16!(Big) >>
         next_header : protocol >>
         hop_limit : be_u8 >>

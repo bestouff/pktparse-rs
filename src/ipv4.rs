@@ -1,8 +1,9 @@
 //! Handles parsing of IPv4 headers
 
 use crate::ip::{self, IPProtocol};
-use nom::Endianness::Big;
-use nom::{be_u8, IResult};
+use nom::number::streaming::be_u8;
+use nom::number::Endianness::Big;
+use nom::IResult;
 use std::convert::TryFrom;
 use std::net::Ipv4Addr;
 
@@ -27,8 +28,8 @@ pub fn to_ipv4_address(i: &[u8]) -> Ipv4Addr {
     Ipv4Addr::from(<[u8; 4]>::try_from(i).unwrap())
 }
 
-named!(two_nibbles<&[u8], (u8, u8)>, bits!(pair!(take_bits!(u8, 4), take_bits!(u8, 4))));
-named!(flag_frag_offset<&[u8], (u8, u16)>, bits!(pair!(take_bits!(u8, 3), take_bits!(u16, 13))));
+named!(two_nibbles<&[u8], (u8, u8)>, bits!(pair!(take_bits!(4u8), take_bits!(4u8))));
+named!(flag_frag_offset<&[u8], (u8, u16)>, bits!(pair!(take_bits!(3u8), take_bits!(13u16))));
 named!(protocol<&[u8], IPProtocol>, map!(be_u8, ip::to_ip_protocol));
 named!(address<&[u8], Ipv4Addr>, map!(take!(4), to_ipv4_address));
 

@@ -1,6 +1,6 @@
 //! Handles parsing of UDP header
 
-use nom::be_u16;
+use nom::number::streaming::be_u16;
 
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]

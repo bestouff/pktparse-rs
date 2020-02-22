@@ -1,7 +1,8 @@
 //! Handles parsing of Arp pakets
 
-use nom::Endianness::Big;
-use nom::{be_u8, IResult};
+use nom::number::streaming::be_u8;
+use nom::number::Endianness::Big;
+use nom::IResult;
 
 use std::net::Ipv4Addr;
 
