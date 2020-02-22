@@ -2,6 +2,7 @@
 
 use crate::ip::{self, IPProtocol};
 use nom::bits;
+use nom::bytes;
 use nom::error::ErrorKind;
 use nom::number;
 use nom::IResult;
@@ -28,16 +29,9 @@ pub fn to_ipv6_address(i: &[u8]) -> Ipv6Addr {
 }
 
 fn address(input: &[u8]) -> IResult<&[u8], Ipv6Addr> {
-    let (input, a) = number::streaming::be_u16(input)?;
-    let (input, b) = number::streaming::be_u16(input)?;
-    let (input, c) = number::streaming::be_u16(input)?;
-    let (input, d) = number::streaming::be_u16(input)?;
-    let (input, e) = number::streaming::be_u16(input)?;
-    let (input, f) = number::streaming::be_u16(input)?;
-    let (input, g) = number::streaming::be_u16(input)?;
-    let (input, h) = number::streaming::be_u16(input)?;
+    let (input, ipv6) = bytes::streaming::take(16u8)(input)?;
 
-    Ok((input, Ipv6Addr::new(a, b, c, d, e, f, g, h)))
+    Ok((input, to_ipv6_address(ipv6)))
 }
 
 /*

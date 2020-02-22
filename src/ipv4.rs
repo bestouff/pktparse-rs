@@ -2,6 +2,7 @@
 
 use crate::ip::{self, IPProtocol};
 use nom::bits;
+use nom::bytes;
 use nom::error::ErrorKind;
 use nom::number;
 use nom::sequence;
@@ -39,12 +40,9 @@ fn flag_frag_offset(input: &[u8]) -> IResult<&[u8], (u8, u16)> {
 }
 
 fn address(input: &[u8]) -> IResult<&[u8], Ipv4Addr> {
-    let (input, a) = number::streaming::be_u8(input)?;
-    let (input, b) = number::streaming::be_u8(input)?;
-    let (input, c) = number::streaming::be_u8(input)?;
-    let (input, d) = number::streaming::be_u8(input)?;
+    let (input, ipv4) = bytes::streaming::take(4u8)(input)?;
 
-    Ok((input, Ipv4Addr::new(a, b, c, d)))
+    Ok((input, to_ipv4_address(ipv4)))
 }
 
 pub fn parse_ipv4_header(input: &[u8]) -> IResult<&[u8], IPv4Header> {
@@ -54,26 +52,26 @@ pub fn parse_ipv4_header(input: &[u8]) -> IResult<&[u8], IPv4Header> {
     let (input, id) = number::streaming::be_u16(input)?;
     let (input, flag_frag_offset) = flag_frag_offset(input)?;
     let (input, ttl) = number::streaming::be_u8(input)?;
-    let (input, proto) = ip::protocol(input)?;
+    let (input, protocol) = ip::protocol(input)?;
     let (input, chksum) = number::streaming::be_u16(input)?;
-    let (input, src_addr) = address(input)?;
-    let (input, dst_addr) = address(input)?;
+    let (input, source_addr) = address(input)?;
+    let (input, dest_addr) = address(input)?;
 
     Ok((
         input,
         IPv4Header {
             version: verihl.0,
             ihl: verihl.1 << 2,
-            tos: tos,
-            length: length,
-            id: id,
+            tos,
+            length,
+            id,
             flags: flag_frag_offset.0,
             fragment_offset: flag_frag_offset.1,
-            ttl: ttl,
-            protocol: proto,
-            chksum: chksum,
-            source_addr: src_addr,
-            dest_addr: dst_addr,
+            ttl,
+            protocol,
+            chksum,
+            source_addr,
+            dest_addr,
         },
     ))
 }
