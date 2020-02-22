@@ -3,7 +3,7 @@
 use nom::number::streaming::be_u16;
 
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct UdpHeader {
     pub source_port: u16,
     pub dest_port: u16,

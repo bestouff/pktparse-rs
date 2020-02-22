@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 use std::net::Ipv6Addr;
 
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct IPv6Header {
     pub version: u8,
     pub ds: u8,

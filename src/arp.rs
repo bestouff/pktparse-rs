@@ -10,7 +10,7 @@ use crate::ethernet::{to_mac_address, MacAddress};
 use crate::ipv4::to_ipv4_address;
 
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum HardwareAddressType {
     Ethernet,
     Other(u16),
@@ -24,7 +24,7 @@ fn to_hw_addr_type(i: u16) -> Option<HardwareAddressType> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum ProtocolAddressType {
     IPv4,
     Other(u16),
@@ -38,7 +38,7 @@ fn to_proto_addr_type(i: u16) -> Option<ProtocolAddressType> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum Operation {
     Request,
     Reply,
@@ -54,7 +54,7 @@ fn to_operation(i: u16) -> Option<Operation> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct ArpPacket {
     pub hw_addr_type: HardwareAddressType,
     pub proto_addr_type: ProtocolAddressType,

@@ -1,7 +1,7 @@
 //! Handles parsing of Internet Protocol fields (shared between ipv4 and ipv6)
 
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum IPProtocol {
     HOPOPT,
     ICMP,
@@ -24,6 +24,12 @@ pub enum IPProtocol {
     IPV6,
     ICMP6,
     Other(u8),
+}
+
+impl From<u8> for IPProtocol {
+    fn from(raw: u8) -> Self {
+        to_ip_protocol(raw)
+    }
 }
 
 pub fn to_ip_protocol(i: u8) -> IPProtocol {

@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 use std::net::Ipv4Addr;
 
 #[derive(Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct IPv4Header {
     pub version: u8,
     pub ihl: u8,
