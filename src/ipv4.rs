@@ -2,7 +2,6 @@
 
 use crate::ip::{self, IPProtocol};
 use nom::bits;
-use nom::combinator;
 use nom::error::ErrorKind;
 use nom::number;
 use nom::sequence;
@@ -32,22 +31,11 @@ pub fn to_ipv4_address(i: &[u8]) -> Ipv4Addr {
     Ipv4Addr::from(<[u8; 4]>::try_from(i).unwrap())
 }
 
-fn two_nibbles(input: &[u8]) -> IResult<&[u8], (u8, u8)> {
-    bits::bits::<_, _, (_, ErrorKind), _, _>(sequence::pair(
-        bits::streaming::take(4u8),
-        bits::streaming::take(4u8),
-    ))(input)
-}
-
 fn flag_frag_offset(input: &[u8]) -> IResult<&[u8], (u8, u16)> {
     bits::bits::<_, _, (_, ErrorKind), _, _>(sequence::pair(
         bits::streaming::take(3u8),
         bits::streaming::take(13u16),
     ))(input)
-}
-
-fn protocol(input: &[u8]) -> IResult<&[u8], IPProtocol> {
-    combinator::map(number::streaming::be_u8, ip::to_ip_protocol)(input)
 }
 
 fn address(input: &[u8]) -> IResult<&[u8], Ipv4Addr> {
@@ -60,13 +48,13 @@ fn address(input: &[u8]) -> IResult<&[u8], Ipv4Addr> {
 }
 
 pub fn parse_ipv4_header(input: &[u8]) -> IResult<&[u8], IPv4Header> {
-    let (input, verihl) = two_nibbles(input)?;
+    let (input, verihl) = ip::two_nibbles(input)?;
     let (input, tos) = number::streaming::be_u8(input)?;
     let (input, length) = number::streaming::be_u16(input)?;
     let (input, id) = number::streaming::be_u16(input)?;
     let (input, flag_frag_offset) = flag_frag_offset(input)?;
     let (input, ttl) = number::streaming::be_u8(input)?;
-    let (input, proto) = protocol(input)?;
+    let (input, proto) = ip::protocol(input)?;
     let (input, chksum) = number::streaming::be_u16(input)?;
     let (input, src_addr) = address(input)?;
     let (input, dst_addr) = address(input)?;
@@ -92,7 +80,7 @@ pub fn parse_ipv4_header(input: &[u8]) -> IResult<&[u8], IPv4Header> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_ipv4_header, protocol, IPProtocol, IPv4Header};
+    use super::{ip::protocol, parse_ipv4_header, IPProtocol, IPv4Header};
     use std::net::Ipv4Addr;
 
     const EMPTY_SLICE: &'static [u8] = &[];
