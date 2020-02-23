@@ -1,7 +1,9 @@
 //! Handles parsing of TCP headers
 
-use nom::number::streaming::be_u8;
-use nom::number::Endianness::Big;
+use nom::bits;
+use nom::error::ErrorKind;
+use nom::number;
+use nom::sequence;
 use nom::{Err, IResult, Needed};
 
 // TCP Header Format
@@ -83,56 +85,75 @@ pub struct TcpHeader {
     pub urgent_pointer: u16,
     pub options: Option<Vec<TcpOption>>,
 }
-named!(dataof_res_flags<&[u8], (u8, u8, u8)>,
-    bits!(tuple!(
-        take_bits!(4u8),
-        take_bits!(6u8),
-        take_bits!(6u8))));
 
-named!(tcp_parse<&[u8], TcpHeader>,
-            do_parse!(src: u16!(Big) >>
-              dst: u16!(Big) >>
-              seq: u32!(Big) >>
-              ack: u32!(Big) >>
-              dataof_res_flags : dataof_res_flags >>
-              window : u16!(Big) >>
-              checksum : u16!(Big) >>
-              urgent_ptr : u16!(Big) >>
-              ({
-                  TcpHeader {
-                  source_port: src,
-                  dest_port : dst,
-                  sequence_no : seq,
-                  ack_no : ack,
-                  data_offset : dataof_res_flags.0,
-                  reserved : dataof_res_flags.1,
-                  flag_urg : dataof_res_flags.2 & 0b10_0000 == 0b10_0000,
-                  flag_ack : dataof_res_flags.2 & 0b01_0000 == 0b01_0000,
-                  flag_psh : dataof_res_flags.2 & 0b00_1000 == 0b00_1000,
-                  flag_rst : dataof_res_flags.2 & 0b00_0100 == 0b00_0100,
-                  flag_syn : dataof_res_flags.2 & 0b00_0010 == 0b00_0010,
-                  flag_fin : dataof_res_flags.2 & 0b00_0001 == 0b00_0001,
-                  window : window,
-                  checksum : checksum,
-                  urgent_pointer : urgent_ptr,
-                  options : None
-              }})));
+fn dataof_res_flags(input: &[u8]) -> IResult<&[u8], (u8, u8, u8)> {
+    bits::bits::<_, _, (_, ErrorKind), _, _>(sequence::tuple((
+        bits::streaming::take(4u8),
+        bits::streaming::take(6u8),
+        bits::streaming::take(6u8),
+    )))(input)
+}
 
-named!(tcp_parse_option<&[u8], TcpOption>,
-        switch!(be_u8,
-            END_OF_OPTIONS => do_parse!(take!(0) >>
-                (TcpOption::EndOfOptions))
-            | NO_OP =>  do_parse!(take!(0) >>
-                (TcpOption::NoOperation))
-            | MSS => do_parse!(_len: be_u8 >>
-                mss: u16!(Big) >>
-                (TcpOption::MaximumSegmentSize(MaximumSegmentSize{mss: mss})))
-            | WINDOW_SCALE => do_parse!(_len: be_u8 >>
-                scaling: be_u8 >>
-                (TcpOption::WindowScale(WindowScale{scaling: scaling})))
-            | SACK_PERMITTED => do_parse!(_len: be_u8 >>
-                  (TcpOption::SackPermitted))
-            ));
+fn tcp_parse(input: &[u8]) -> IResult<&[u8], TcpHeader> {
+    let (input, source_port) = number::streaming::be_u16(input)?;
+    let (input, dest_port) = number::streaming::be_u16(input)?;
+    let (input, sequence_no) = number::streaming::be_u32(input)?;
+    let (input, ack_no) = number::streaming::be_u32(input)?;
+    let (input, dataof_res_flags) = dataof_res_flags(input)?;
+    let (input, window) = number::streaming::be_u16(input)?;
+    let (input, checksum) = number::streaming::be_u16(input)?;
+    let (input, urgent_pointer) = number::streaming::be_u16(input)?;
+
+    Ok((
+        input,
+        TcpHeader {
+            source_port,
+            dest_port,
+            sequence_no,
+            ack_no,
+            data_offset: dataof_res_flags.0,
+            reserved: dataof_res_flags.1,
+            flag_urg: dataof_res_flags.2 & 0b10_0000 == 0b10_0000,
+            flag_ack: dataof_res_flags.2 & 0b01_0000 == 0b01_0000,
+            flag_psh: dataof_res_flags.2 & 0b00_1000 == 0b00_1000,
+            flag_rst: dataof_res_flags.2 & 0b00_0100 == 0b00_0100,
+            flag_syn: dataof_res_flags.2 & 0b00_0010 == 0b00_0010,
+            flag_fin: dataof_res_flags.2 & 0b00_0001 == 0b00_0001,
+            window,
+            checksum,
+            urgent_pointer,
+            options: None,
+        },
+    ))
+}
+
+fn tcp_parse_option(input: &[u8]) -> IResult<&[u8], TcpOption> {
+    match number::streaming::be_u8(input)? {
+        (input, END_OF_OPTIONS) => Ok((input, TcpOption::EndOfOptions)),
+        (input, NO_OP) => Ok((input, TcpOption::NoOperation)),
+        (input, MSS) => {
+            let (input, _len) = number::streaming::be_u8(input)?;
+            let (input, mss) = number::streaming::be_u16(input)?;
+            Ok((
+                input,
+                TcpOption::MaximumSegmentSize(MaximumSegmentSize { mss: mss }),
+            ))
+        }
+        (input, WINDOW_SCALE) => {
+            let (input, _len) = number::streaming::be_u8(input)?;
+            let (input, scaling) = number::streaming::be_u8(input)?;
+            Ok((
+                input,
+                TcpOption::WindowScale(WindowScale { scaling: scaling }),
+            ))
+        }
+        (input, SACK_PERMITTED) => {
+            let (input, _len) = number::streaming::be_u8(input)?;
+            Ok((input, TcpOption::SackPermitted))
+        }
+        _ => Err(Err::Failure((input, ErrorKind::Switch))),
+    }
+}
 
 fn tcp_parse_options(i: &[u8]) -> IResult<&[u8], Vec<TcpOption>> {
     let mut left = i;
