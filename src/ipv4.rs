@@ -39,7 +39,7 @@ fn flag_frag_offset(input: &[u8]) -> IResult<&[u8], (u8, u16)> {
     ))(input)
 }
 
-fn address(input: &[u8]) -> IResult<&[u8], Ipv4Addr> {
+pub(crate) fn address(input: &[u8]) -> IResult<&[u8], Ipv4Addr> {
     let (input, ipv4) = bytes::streaming::take(4u8)(input)?;
 
     Ok((input, to_ipv4_address(ipv4)))

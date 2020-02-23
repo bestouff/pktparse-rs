@@ -137,7 +137,7 @@ pub fn to_mac_address(i: &[u8]) -> MacAddress {
     MacAddress(<[u8; 6]>::try_from(i).unwrap())
 }
 
-named!(mac_address<&[u8], MacAddress>, map!(take!(6), to_mac_address));
+named!(pub(crate) mac_address<&[u8], MacAddress>, map!(take!(6), to_mac_address));
 named!(ethertype<&[u8], EtherType>, map_opt!(u16!(Big), to_ethertype));
 named!(ethernet_frame<&[u8], EthernetFrame>, do_parse!(
     dest_mac: mac_address >>

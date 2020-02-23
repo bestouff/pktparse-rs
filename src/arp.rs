@@ -1,13 +1,12 @@
 //! Handles parsing of Arp pakets
 
-use nom::number::streaming::be_u8;
-use nom::number::Endianness::Big;
+use nom::number;
 use nom::IResult;
-
 use std::net::Ipv4Addr;
 
-use crate::ethernet::{to_mac_address, MacAddress};
-use crate::ipv4::to_ipv4_address;
+use crate::ethernet;
+use crate::ethernet::MacAddress;
+use crate::ipv4;
 
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
@@ -16,10 +15,12 @@ pub enum HardwareAddressType {
     Other(u16),
 }
 
-fn to_hw_addr_type(i: u16) -> Option<HardwareAddressType> {
-    match i {
-        0x0001 => Some(HardwareAddressType::Ethernet),
-        other => Some(HardwareAddressType::Other(other)),
+impl From<u16> for HardwareAddressType {
+    fn from(raw: u16) -> Self {
+        match raw {
+            0x0001 => Self::Ethernet,
+            other => Self::Other(other),
+        }
     }
 }
 
@@ -30,10 +31,12 @@ pub enum ProtocolAddressType {
     Other(u16),
 }
 
-fn to_proto_addr_type(i: u16) -> Option<ProtocolAddressType> {
-    match i {
-        0x0800 => Some(ProtocolAddressType::IPv4),
-        other => Some(ProtocolAddressType::Other(other)),
+impl From<u16> for ProtocolAddressType {
+    fn from(raw: u16) -> Self {
+        match raw {
+            0x0800 => Self::IPv4,
+            other => Self::Other(other),
+        }
     }
 }
 
@@ -45,11 +48,13 @@ pub enum Operation {
     Other(u16),
 }
 
-fn to_operation(i: u16) -> Option<Operation> {
-    match i {
-        0x0001 => Some(Operation::Request),
-        0x0002 => Some(Operation::Reply),
-        other => Some(Operation::Other(other)),
+impl From<u16> for Operation {
+    fn from(raw: u16) -> Self {
+        match raw {
+            0x0001 => Self::Request,
+            0x0002 => Self::Reply,
+            other => Self::Other(other),
+        }
     }
 }
 
@@ -71,51 +76,55 @@ pub struct ArpPacket {
     pub dest_addr: Ipv4Addr,
 }
 
-named!(hw_addr_type<&[u8], HardwareAddressType>, map_opt!(u16!(Big), to_hw_addr_type));
-named!(proto_addr_type<&[u8], ProtocolAddressType>, map_opt!(u16!(Big), to_proto_addr_type));
-named!(operation<&[u8], Operation>, map_opt!(u16!(Big), to_operation));
-named!(mac_address<&[u8], MacAddress>, map!(take!(6), to_mac_address));
-named!(address<&[u8], Ipv4Addr>, map!(take!(4), to_ipv4_address));
-named!(arp_packet<&[u8], ArpPacket>, do_parse!(
-    hw_addr_type: hw_addr_type >>
-    proto_addr_type: proto_addr_type >>
+fn parse_hw_addr_type(input: &[u8]) -> IResult<&[u8], HardwareAddressType> {
+    let (input, hw_addr_type) = number::streaming::be_u16(input)?;
 
-    hw_addr_size:  be_u8 >>
-    proto_addr_size: be_u8 >>
+    Ok((input, hw_addr_type.into()))
+}
 
-    operation: operation >>
+fn parse_proto_addr_type(input: &[u8]) -> IResult<&[u8], ProtocolAddressType> {
+    let (input, proto_addr_type) = number::streaming::be_u16(input)?;
 
-    src_mac: mac_address >>
-    src_addr: address >>
+    Ok((input, proto_addr_type.into()))
+}
 
-    dest_mac: mac_address >>
-    dest_addr: address >>
+fn parse_operation(input: &[u8]) -> IResult<&[u8], Operation> {
+    let (input, operation) = number::streaming::be_u16(input)?;
 
-    ({ ArpPacket{
-        hw_addr_type: hw_addr_type,
-        proto_addr_type: proto_addr_type,
+    Ok((input, operation.into()))
+}
 
-        hw_addr_size: hw_addr_size,
-        proto_addr_size: proto_addr_size,
+pub fn parse_arp_pkt(input: &[u8]) -> IResult<&[u8], ArpPacket> {
+    let (input, hw_addr_type) = parse_hw_addr_type(input)?;
+    let (input, proto_addr_type) = parse_proto_addr_type(input)?;
+    let (input, hw_addr_size) = number::streaming::be_u8(input)?;
+    let (input, proto_addr_size) = number::streaming::be_u8(input)?;
+    let (input, operation) = parse_operation(input)?;
+    let (input, src_mac) = ethernet::mac_address(input)?;
+    let (input, src_addr) = ipv4::address(input)?;
+    let (input, dest_mac) = ethernet::mac_address(input)?;
+    let (input, dest_addr) = ipv4::address(input)?;
 
-        operation: operation,
-
-        src_mac: src_mac,
-        src_addr: src_addr,
-
-        dest_mac: dest_mac,
-        dest_addr: dest_addr,
-    }})
-));
-
-pub fn parse_arp_pkt(i: &[u8]) -> IResult<&[u8], ArpPacket> {
-    arp_packet(i)
+    Ok((
+        input,
+        ArpPacket {
+            hw_addr_type,
+            proto_addr_type,
+            hw_addr_size,
+            proto_addr_size,
+            operation,
+            src_mac,
+            src_addr,
+            dest_mac,
+            dest_addr,
+        },
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        arp_packet, ArpPacket, HardwareAddressType, MacAddress, Operation, ProtocolAddressType,
+        parse_arp_pkt, ArpPacket, HardwareAddressType, MacAddress, Operation, ProtocolAddressType,
     };
     use std::net::Ipv4Addr;
 
@@ -149,6 +158,6 @@ mod tests {
             dest_mac: MacAddress([0xde, 0xad, 0xc0, 0x00, 0xff, 0xee]),
             dest_addr: Ipv4Addr::new(192, 168, 1, 253),
         };
-        assert_eq!(arp_packet(&bytes), Ok((EMPTY_SLICE, expectation)));
+        assert_eq!(parse_arp_pkt(&bytes), Ok((EMPTY_SLICE, expectation)));
     }
 }
