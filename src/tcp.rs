@@ -136,16 +136,13 @@ fn tcp_parse_option(input: &[u8]) -> IResult<&[u8], TcpOption> {
             let (input, mss) = number::streaming::be_u16(input)?;
             Ok((
                 input,
-                TcpOption::MaximumSegmentSize(MaximumSegmentSize { mss: mss }),
+                TcpOption::MaximumSegmentSize(MaximumSegmentSize { mss }),
             ))
         }
         (input, WINDOW_SCALE) => {
             let (input, _len) = number::streaming::be_u8(input)?;
             let (input, scaling) = number::streaming::be_u8(input)?;
-            Ok((
-                input,
-                TcpOption::WindowScale(WindowScale { scaling: scaling }),
-            ))
+            Ok((input, TcpOption::WindowScale(WindowScale { scaling })))
         }
         (input, SACK_PERMITTED) => {
             let (input, _len) = number::streaming::be_u8(input)?;
