@@ -1,12 +1,14 @@
 //! Handles parsing of Ethernet headers
 
-use nom::number::Endianness::Big;
+use nom::bytes;
+use nom::number;
 use nom::IResult;
 use std::convert::TryFrom;
 
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct MacAddress(pub [u8; 6]);
+
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum EtherType {
@@ -58,6 +60,7 @@ pub enum EtherType {
     VLANdouble,
     Other(u16),
 }
+
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct EthernetFrame {
@@ -81,84 +84,113 @@ struct VidEthertype {
     ethertype: EtherType,
 }
 
-fn to_ethertype(i: u16) -> Option<EtherType> {
-    match i {
-        0x002E => Some(EtherType::LANMIN),         // 802.3 Min data length
-        0x05DC => Some(EtherType::LANMAX),         // 802.3 Max data length
-        0x0800 => Some(EtherType::IPv4),           // Internet Protocol version 4 (IPv4)
-        0x0806 => Some(EtherType::ARP),            // Address Resolution Protocol (ARP)
-        0x0842 => Some(EtherType::WOL),            // Wake-on-LAN[4]
-        0x22F3 => Some(EtherType::TRILL),          // IETF TRILL Protocol
-        0x6003 => Some(EtherType::DECnet),         // DECnet Phase IV
-        0x8035 => Some(EtherType::RARP),           // Reverse Address Resolution Protocol
-        0x809B => Some(EtherType::AppleTalk),      // AppleTalk (Ethertalk)
-        0x80F3 => Some(EtherType::AARP),           // AppleTalk Address Resolution Protocol (AARP)
-        0x8100 => Some(EtherType::VLAN), // VLAN-tagged frame (IEEE 802.1Q) and Shortest Path Bridging IEEE 802.1aq[5]
-        0x8137 => Some(EtherType::IPX),  // IPX
-        0x8204 => Some(EtherType::Qnet), // QNX Qnet
-        0x86DD => Some(EtherType::IPv6), // Internet Protocol Version 6 (IPv6)
-        0x8808 => Some(EtherType::FlowControl), // Ethernet flow control
-        0x8819 => Some(EtherType::CobraNet), // CobraNet
-        0x8847 => Some(EtherType::MPLSuni), // MPLS unicast
-        0x8848 => Some(EtherType::MPLSmulti), // MPLS multicast
-        0x8863 => Some(EtherType::PPPoEdiscovery), // PPPoE Discovery Stage
-        0x8864 => Some(EtherType::PPPoEsession), // PPPoE Session Stage
-        0x887B => Some(EtherType::HomePlug), // HomePlug 1.0 MME
-        0x888E => Some(EtherType::EAPOL), // EAP over LAN (IEEE 802.1X)
-        0x8892 => Some(EtherType::PROFINET), // PROFINET Protocol
-        0x889A => Some(EtherType::HyperSCSI), // HyperSCSI (SCSI over Ethernet)
-        0x88A2 => Some(EtherType::ATAOE), // ATA over Ethernet
-        0x88A4 => Some(EtherType::EtherCAT), // EtherCAT Protocol
-        0x88A8 => Some(EtherType::QinQ), // Provider Bridging (IEEE 802.1ad) & Shortest Path Bridging IEEE 802.1aq[5]
-        0x88AB => Some(EtherType::Powerlink), // Ethernet Powerlink[citation needed]
-        0x88B8 => Some(EtherType::GOOSE), // GOOSE (Generic Object Oriented Substation event)
-        0x88B9 => Some(EtherType::GSE),  // GSE (Generic Substation Events) Management Services
-        0x88CC => Some(EtherType::LLDP), // Link Layer Discovery Protocol (LLDP)
-        0x88CD => Some(EtherType::SERCOS), // SERCOS III
-        0x88E1 => Some(EtherType::HomePlugAV), // HomePlug AV MME[citation needed]
-        0x88E3 => Some(EtherType::MRP),  // Media Redundancy Protocol (IEC62439-2)
-        0x88E5 => Some(EtherType::MACsec), // MAC security (IEEE 802.1AE)
-        0x88E7 => Some(EtherType::PBB),  // Provider Backbone Bridges (PBB) (IEEE 802.1ah)
-        0x88F7 => Some(EtherType::PTP),  // Precision Time Protocol (PTP) over Ethernet (IEEE 1588)
-        0x88FB => Some(EtherType::PRP),  // Parallel Redundancy Protocol (PRP)
-        0x8902 => Some(EtherType::CFM), // IEEE 802.1ag Connectivity Fault Management (CFM) Protocol / ITU-T Recommendation Y.1731 (OAM)
-        0x8906 => Some(EtherType::FCoE), // Fibre Channel over Ethernet (FCoE)
-        0x8914 => Some(EtherType::FCoEi), // FCoE Initialization Protocol
-        0x8915 => Some(EtherType::RoCE), // RDMA over Converged Ethernet (RoCE)
-        0x891D => Some(EtherType::TTE), // TTEthernet Protocol Control Frame (TTE)
-        0x892F => Some(EtherType::HSR), // High-availability Seamless Redundancy (HSR)
-        0x9000 => Some(EtherType::CTP), // Ethernet Configuration Testing Protocol[6]
-        0x9100 => Some(EtherType::VLANdouble), // VLAN-tagged (IEEE 802.1Q) frame with double tagging
-        other => Some(EtherType::Other(other)),
+impl From<u16> for EtherType {
+    fn from(raw: u16) -> Self {
+        match raw {
+            0x002E => Self::LANMIN,         // 802.3 Min data length
+            0x05DC => Self::LANMAX,         // 802.3 Max data length
+            0x0800 => Self::IPv4,           // Internet Protocol version 4 (IPv4)
+            0x0806 => Self::ARP,            // Address Resolution Protocol (ARP)
+            0x0842 => Self::WOL,            // Wake-on-LAN[4]
+            0x22F3 => Self::TRILL,          // IETF TRILL Protocol
+            0x6003 => Self::DECnet,         // DECnet Phase IV
+            0x8035 => Self::RARP,           // Reverse Address Resolution Protocol
+            0x809B => Self::AppleTalk,      // AppleTalk (Ethertalk)
+            0x80F3 => Self::AARP,           // AppleTalk Address Resolution Protocol (AARP)
+            0x8100 => Self::VLAN, // VLAN-tagged frame (IEEE 802.1Q) and Shortest Path Bridging IEEE 802.1aq[5]
+            0x8137 => Self::IPX,  // IPX
+            0x8204 => Self::Qnet, // QNX Qnet
+            0x86DD => Self::IPv6, // Internet Protocol Version 6 (IPv6)
+            0x8808 => Self::FlowControl, // Ethernet flow control
+            0x8819 => Self::CobraNet, // CobraNet
+            0x8847 => Self::MPLSuni, // MPLS unicast
+            0x8848 => Self::MPLSmulti, // MPLS multicast
+            0x8863 => Self::PPPoEdiscovery, // PPPoE Discovery Stage
+            0x8864 => Self::PPPoEsession, // PPPoE Session Stage
+            0x887B => Self::HomePlug, // HomePlug 1.0 MME
+            0x888E => Self::EAPOL, // EAP over LAN (IEEE 802.1X)
+            0x8892 => Self::PROFINET, // PROFINET Protocol
+            0x889A => Self::HyperSCSI, // HyperSCSI (SCSI over Ethernet)
+            0x88A2 => Self::ATAOE, // ATA over Ethernet
+            0x88A4 => Self::EtherCAT, // EtherCAT Protocol
+            0x88A8 => Self::QinQ, // Provider Bridging (IEEE 802.1ad) & Shortest Path Bridging IEEE 802.1aq[5]
+            0x88AB => Self::Powerlink, // Ethernet Powerlink[citation needed]
+            0x88B8 => Self::GOOSE, // GOOSE (Generic Object Oriented Substation event)
+            0x88B9 => Self::GSE,  // GSE (Generic Substation Events) Management Services
+            0x88CC => Self::LLDP, // Link Layer Discovery Protocol (LLDP)
+            0x88CD => Self::SERCOS, // SERCOS III
+            0x88E1 => Self::HomePlugAV, // HomePlug AV MME[citation needed]
+            0x88E3 => Self::MRP,  // Media Redundancy Protocol (IEC62439-2)
+            0x88E5 => Self::MACsec, // MAC security (IEEE 802.1AE)
+            0x88E7 => Self::PBB,  // Provider Backbone Bridges (PBB) (IEEE 802.1ah)
+            0x88F7 => Self::PTP,  // Precision Time Protocol (PTP) over Ethernet (IEEE 1588)
+            0x88FB => Self::PRP,  // Parallel Redundancy Protocol (PRP)
+            0x8902 => Self::CFM, // IEEE 802.1ag Connectivity Fault Management (CFM) Protocol / ITU-T Recommendation Y.1731 (OAM)
+            0x8906 => Self::FCoE, // Fibre Channel over Ethernet (FCoE)
+            0x8914 => Self::FCoEi, // FCoE Initialization Protocol
+            0x8915 => Self::RoCE, // RDMA over Converged Ethernet (RoCE)
+            0x891D => Self::TTE, // TTEthernet Protocol Control Frame (TTE)
+            0x892F => Self::HSR, // High-availability Seamless Redundancy (HSR)
+            0x9000 => Self::CTP, // Ethernet Configuration Testing Protocol[6]
+            0x9100 => Self::VLANdouble, // VLAN-tagged (IEEE 802.1Q) frame with double tagging
+            other => Self::Other(other),
+        }
     }
 }
 
+// to remove ?
 pub fn to_mac_address(i: &[u8]) -> MacAddress {
     MacAddress(<[u8; 6]>::try_from(i).unwrap())
 }
 
-named!(pub(crate) mac_address<&[u8], MacAddress>, map!(take!(6), to_mac_address));
-named!(ethertype<&[u8], EtherType>, map_opt!(u16!(Big), to_ethertype));
-named!(ethernet_frame<&[u8], EthernetFrame>, do_parse!(
-    dest_mac: mac_address >>
-    src_mac: mac_address >>
-    et: ethertype >>
-    (EthernetFrame{source_mac: src_mac, dest_mac: dest_mac, ethertype: et})
-));
-named!(vid_ethertype<&[u8], VidEthertype>, do_parse!(
-    vid: u16!(Big) >>
-    et: ethertype >>
-    (VidEthertype{vid, ethertype: et})
-));
-named!(vlan_ethernet_frame<&[u8], VlanEthernetFrame>, do_parse!(
-    dest_mac: mac_address >>
-    src_mac: mac_address >>
-    et: ethertype >>
-    (VlanEthernetFrame{source_mac: src_mac, dest_mac: dest_mac, ethertype: et, vid: None})
-));
+pub(crate) fn mac_address(input: &[u8]) -> IResult<&[u8], MacAddress> {
+    let (input, mac) = bytes::streaming::take(6u8)(input)?;
 
-pub fn parse_ethernet_frame(i: &[u8]) -> IResult<&[u8], EthernetFrame> {
-    ethernet_frame(i)
+    Ok((input, to_mac_address(mac)))
+}
+
+fn parse_ethertype(input: &[u8]) -> IResult<&[u8], EtherType> {
+    let (input, ether) = number::streaming::be_u16(input)?;
+
+    Ok((input, ether.into()))
+}
+
+fn vid_ethertype(input: &[u8]) -> IResult<&[u8], VidEthertype> {
+    let (input, vid) = number::streaming::be_u16(input)?;
+    let (input, ethertype) = parse_ethertype(input)?;
+
+    Ok((input, VidEthertype { vid, ethertype }))
+}
+
+fn vlan_ethernet_frame(input: &[u8]) -> IResult<&[u8], VlanEthernetFrame> {
+    let (input, dest_mac) = mac_address(input)?;
+    let (input, source_mac) = mac_address(input)?;
+    let (input, ethertype) = parse_ethertype(input)?;
+
+    Ok((
+        input,
+        VlanEthernetFrame {
+            source_mac,
+            dest_mac,
+            ethertype,
+            vid: None,
+        },
+    ))
+}
+
+pub fn parse_ethernet_frame(input: &[u8]) -> IResult<&[u8], EthernetFrame> {
+    let (input, dest_mac) = mac_address(input)?;
+    let (input, source_mac) = mac_address(input)?;
+    let (input, ethertype) = parse_ethertype(input)?;
+
+    Ok((
+        input,
+        EthernetFrame {
+            source_mac,
+            dest_mac,
+            ethertype,
+        },
+    ))
 }
 
 /// Similar to `parse_ethernet_frame` but returns a `VlanEthernetFrame` on success. This uses more
@@ -176,7 +208,9 @@ pub fn parse_vlan_ethernet_frame(i: &[u8]) -> IResult<&[u8], VlanEthernetFrame> 
 
 #[cfg(test)]
 mod tests {
-    use super::{ethernet_frame, ethertype, mac_address, EtherType, EthernetFrame, MacAddress};
+    use super::{
+        mac_address, parse_ethernet_frame, parse_ethertype, EtherType, EthernetFrame, MacAddress,
+    };
 
     const EMPTY_SLICE: &'static [u8] = &[];
 
@@ -191,7 +225,10 @@ mod tests {
             #[test]
             fn $func_name() {
                 let bytes = $bytes;
-                assert_eq!(ethertype(&bytes), Ok((EMPTY_SLICE, $correct_ethertype)));
+                assert_eq!(
+                    parse_ethertype(&bytes),
+                    Ok((EMPTY_SLICE, $correct_ethertype))
+                );
             }
         };
     }
@@ -213,7 +250,7 @@ mod tests {
             dest_mac: MacAddress([0x00, 0x23, 0x54, 0x07, 0x93, 0x6c]),
             ethertype: EtherType::IPv4,
         };
-        assert_eq!(ethernet_frame(&bytes), Ok((EMPTY_SLICE, expectation)));
+        assert_eq!(parse_ethernet_frame(&bytes), Ok((EMPTY_SLICE, expectation)));
     }
 
     #[test]
