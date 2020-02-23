@@ -1,6 +1,7 @@
 //! Handles parsing of UDP header
 
-use nom::number::streaming::be_u16;
+use nom::number;
+use nom::IResult;
 
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
@@ -11,15 +12,22 @@ pub struct UdpHeader {
     pub checksum: u16,
 }
 
-named!(pub parse_udp_header<&[u8], UdpHeader>, do_parse!(
-        source_port: be_u16 >>
-        dest_port: be_u16 >>
-        length: be_u16 >>
-        checksum: be_u16 >>
-    (
-        UdpHeader{source_port: source_port, dest_port: dest_port, length: length, checksum: checksum}
-    )
-));
+pub fn parse_udp_header(input: &[u8]) -> IResult<&[u8], UdpHeader> {
+    let (input, source_port) = number::streaming::be_u16(input)?;
+    let (input, dest_port) = number::streaming::be_u16(input)?;
+    let (input, length) = number::streaming::be_u16(input)?;
+    let (input, checksum) = number::streaming::be_u16(input)?;
+
+    Ok((
+        input,
+        UdpHeader {
+            source_port,
+            dest_port,
+            length,
+            checksum,
+        },
+    ))
+}
 
 #[cfg(test)]
 mod tests {
