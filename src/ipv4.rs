@@ -27,11 +27,6 @@ pub struct IPv4Header {
     pub dest_addr: Ipv4Addr,
 }
 
-// To remove ?
-pub fn to_ipv4_address(i: &[u8]) -> Ipv4Addr {
-    Ipv4Addr::from(<[u8; 4]>::try_from(i).unwrap())
-}
-
 fn flag_frag_offset(input: &[u8]) -> IResult<&[u8], (u8, u16)> {
     bits::bits::<_, _, (_, ErrorKind), _, _>(sequence::pair(
         bits::streaming::take(3u8),
@@ -42,7 +37,7 @@ fn flag_frag_offset(input: &[u8]) -> IResult<&[u8], (u8, u16)> {
 pub(crate) fn address(input: &[u8]) -> IResult<&[u8], Ipv4Addr> {
     let (input, ipv4) = bytes::streaming::take(4u8)(input)?;
 
-    Ok((input, to_ipv4_address(ipv4)))
+    Ok((input, Ipv4Addr::from(<[u8; 4]>::try_from(ipv4).unwrap())))
 }
 
 pub fn parse_ipv4_header(input: &[u8]) -> IResult<&[u8], IPv4Header> {

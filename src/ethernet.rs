@@ -138,15 +138,10 @@ impl From<u16> for EtherType {
     }
 }
 
-// to remove ?
-pub fn to_mac_address(i: &[u8]) -> MacAddress {
-    MacAddress(<[u8; 6]>::try_from(i).unwrap())
-}
-
 pub(crate) fn mac_address(input: &[u8]) -> IResult<&[u8], MacAddress> {
     let (input, mac) = bytes::streaming::take(6u8)(input)?;
 
-    Ok((input, to_mac_address(mac)))
+    Ok((input, MacAddress(<[u8; 6]>::try_from(mac).unwrap())))
 }
 
 fn parse_ethertype(input: &[u8]) -> IResult<&[u8], EtherType> {

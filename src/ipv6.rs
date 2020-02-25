@@ -23,15 +23,10 @@ pub struct IPv6Header {
     pub dest_addr: Ipv6Addr,
 }
 
-// To remove ?
-pub fn to_ipv6_address(i: &[u8]) -> Ipv6Addr {
-    Ipv6Addr::from(<[u8; 16]>::try_from(i).unwrap())
-}
-
 pub(crate) fn address(input: &[u8]) -> IResult<&[u8], Ipv6Addr> {
     let (input, ipv6) = bytes::streaming::take(16u8)(input)?;
 
-    Ok((input, to_ipv6_address(ipv6)))
+    Ok((input, Ipv6Addr::from(<[u8; 16]>::try_from(ipv6).unwrap())))
 }
 
 /*
