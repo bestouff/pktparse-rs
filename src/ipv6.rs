@@ -9,7 +9,7 @@ use nom::IResult;
 use std::convert::TryFrom;
 use std::net::Ipv6Addr;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct IPv6Header {
     pub version: u8,

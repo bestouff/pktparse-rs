@@ -6,7 +6,7 @@ use nom::number;
 use nom::sequence;
 use nom::IResult;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum IPProtocol {
     HOPOPT,

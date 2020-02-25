@@ -5,11 +5,11 @@ use nom::number;
 use nom::IResult;
 use std::convert::TryFrom;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct MacAddress(pub [u8; 6]);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum EtherType {
     LANMIN,
@@ -61,7 +61,7 @@ pub enum EtherType {
     Other(u16),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct EthernetFrame {
     pub source_mac: MacAddress,
@@ -69,7 +69,7 @@ pub struct EthernetFrame {
     pub ethertype: EtherType,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct VlanEthernetFrame {
     pub source_mac: MacAddress,

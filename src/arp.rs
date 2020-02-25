@@ -8,7 +8,7 @@ use crate::ethernet;
 use crate::ethernet::MacAddress;
 use crate::ipv4;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum HardwareAddressType {
     Ethernet,
@@ -24,7 +24,7 @@ impl From<u16> for HardwareAddressType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum ProtocolAddressType {
     IPv4,
@@ -40,7 +40,7 @@ impl From<u16> for ProtocolAddressType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub enum Operation {
     Request,
@@ -58,7 +58,7 @@ impl From<u16> for Operation {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
 pub struct ArpPacket {
     pub hw_addr_type: HardwareAddressType,
