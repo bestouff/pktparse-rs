@@ -44,7 +44,7 @@ const WINDOW_SCALE: u8 = 3;
 const SACK_PERMITTED: u8 = 4;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TcpOption {
     EndOfOptions,
     NoOperation,
@@ -54,18 +54,18 @@ pub enum TcpOption {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MaximumSegmentSize {
     pub mss: u16,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowScale {
     pub scaling: u8,
 }
 
-#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct TcpHeader {
     pub source_port: u16,

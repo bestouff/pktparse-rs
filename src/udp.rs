@@ -4,7 +4,7 @@ use nom::number;
 use nom::IResult;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "derive", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UdpHeader {
     pub source_port: u16,
     pub dest_port: u16,
