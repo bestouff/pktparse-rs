@@ -1,7 +1,7 @@
 //! Handles parsing of Internet Protocol fields (shared between ipv4 and ipv6)
 
 use nom::bits;
-use nom::error::ErrorKind;
+use nom::error::Error;
 use nom::number;
 use nom::sequence;
 use nom::IResult;
@@ -61,7 +61,7 @@ impl From<u8> for IPProtocol {
 }
 
 pub(crate) fn two_nibbles(input: &[u8]) -> IResult<&[u8], (u8, u8)> {
-    bits::bits::<_, _, (_, ErrorKind), _, _>(sequence::pair(
+    bits::bits::<_, _, Error<_>, _, _>(sequence::pair(
         bits::streaming::take(4u8),
         bits::streaming::take(4u8),
     ))(input)

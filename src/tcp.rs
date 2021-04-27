@@ -1,7 +1,7 @@
 //! Handles parsing of TCP headers
 
 use nom::bits;
-use nom::error::ErrorKind;
+use nom::error::{Error, ErrorKind};
 use nom::number;
 use nom::sequence;
 use nom::{Err, IResult, Needed};
@@ -87,7 +87,7 @@ pub struct TcpHeader {
 }
 
 fn dataof_res_flags(input: &[u8]) -> IResult<&[u8], (u8, u8, u8)> {
-    bits::bits::<_, _, (_, ErrorKind), _, _>(sequence::tuple((
+    bits::bits::<_, _, Error<_>, _, _>(sequence::tuple((
         bits::streaming::take(4u8),
         bits::streaming::take(6u8),
         bits::streaming::take(6u8),
@@ -148,7 +148,7 @@ fn tcp_parse_option(input: &[u8]) -> IResult<&[u8], TcpOption> {
             let (input, _len) = number::streaming::be_u8(input)?;
             Ok((input, TcpOption::SackPermitted))
         }
-        _ => Err(Err::Failure((input, ErrorKind::Switch))),
+        _ => Err(Err::Failure(Error::new(input, ErrorKind::Switch))),
     }
 }
 
@@ -185,7 +185,7 @@ pub fn parse_tcp_header(i: &[u8]) -> IResult<&[u8], TcpHeader> {
                     }
                     Ok((&left[options_length..], tcp_header))
                 } else {
-                    Err(Err::Incomplete(Needed::Size(options_length - left.len())))
+                    Err(Err::Incomplete(Needed::new(options_length - left.len())))
                 }
             } else {
                 Ok((left, tcp_header))

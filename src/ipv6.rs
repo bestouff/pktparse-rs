@@ -3,7 +3,7 @@
 use crate::ip::{self, IPProtocol};
 use nom::bits;
 use nom::bytes;
-use nom::error::ErrorKind;
+use nom::error::Error;
 use nom::number;
 use nom::IResult;
 use std::convert::TryFrom;
@@ -41,7 +41,7 @@ pub fn parse_ipv6_header(input: &[u8]) -> IResult<&[u8], IPv6Header> {
     let (input, ver_tc) = ip::two_nibbles(input)?;
     let (input, tc_fl) = ip::two_nibbles(input)?;
     let (input, fl): (_, u32) =
-        bits::bits::<_, _, (_, ErrorKind), _, _>(bits::streaming::take(16u8))(input)?;
+        bits::bits::<_, _, Error<_>, _, _>(bits::streaming::take(16u8))(input)?;
     let (input, length) = number::streaming::be_u16(input)?;
     let (input, next_header) = ip::protocol(input)?;
     let (input, hop_limit) = number::streaming::be_u8(input)?;

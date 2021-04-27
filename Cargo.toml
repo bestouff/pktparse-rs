@@ -9,5 +9,5 @@ license = "LGPL-3.0"
 edition = "2018"
 
 [dependencies]
-nom = "5.1"
+nom = "6"
 serde = { version = "1.0", optional = true, features = ["derive"] }

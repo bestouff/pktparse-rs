@@ -3,7 +3,7 @@
 use crate::ip::{self, IPProtocol};
 use nom::bits;
 use nom::bytes;
-use nom::error::ErrorKind;
+use nom::error::Error;
 use nom::number;
 use nom::sequence;
 use nom::IResult;
@@ -28,7 +28,7 @@ pub struct IPv4Header {
 }
 
 fn flag_frag_offset(input: &[u8]) -> IResult<&[u8], (u8, u16)> {
-    bits::bits::<_, _, (_, ErrorKind), _, _>(sequence::pair(
+    bits::bits::<_, _, Error<_>, _, _>(sequence::pair(
         bits::streaming::take(3u8),
         bits::streaming::take(13u16),
     ))(input)
