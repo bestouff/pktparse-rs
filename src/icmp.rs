@@ -38,7 +38,7 @@ pub enum Redirect {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TimeExceeded {
     TTL,
-    FragmentReassebly
+    FragmentReassembly
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -124,7 +124,7 @@ impl From<u16> for ICMPCode {
             0x0A => Self::RouterSolicication,
             0x0B => match c {
                 0x00 => Self::TimeExceeded(TimeExceeded::TTL),
-                0x01 => Self::TimeExceeded(TimeExceeded::FragmentReassebly),
+                0x01 => Self::TimeExceeded(TimeExceeded::FragmentReassembly),
                 _ => Self::Other(raw),
             },
             0x0C => match c {
@@ -199,13 +199,13 @@ fn parse_icmp_timeexceeded_data(input: &[u8]) -> IResult<&[u8], ICMPData> {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ICMPHeader {
+pub struct IcmpHeader {
     pub code: ICMPCode,
     pub checksum: u16,
     pub data: ICMPData,
 }
 
-pub fn parse_icmp_header(input: &[u8]) -> IResult<&[u8], ICMPHeader> {
+pub fn parse_icmp_header(input: &[u8]) -> IResult<&[u8], IcmpHeader> {
     let (input, code) = parse_icmp_code(input)?;
     let (input, checksum) = number::streaming::be_u16(input)?;
 
@@ -218,7 +218,7 @@ pub fn parse_icmp_header(input: &[u8]) -> IResult<&[u8], ICMPHeader> {
 
     Ok((
         input,
-        ICMPHeader {
+        IcmpHeader {
             code,
             checksum,
             data
@@ -228,7 +228,7 @@ pub fn parse_icmp_header(input: &[u8]) -> IResult<&[u8], ICMPHeader> {
 
 #[cfg(test)]
 mod tests {
-    use super:: {ICMPHeader, ICMPCode, Unreachable, ICMPData, Redirect, parse_icmp_header};
+    use super:: {IcmpHeader, ICMPCode, Unreachable, ICMPData, Redirect, parse_icmp_header};
     use crate::ipv4::IPv4Header;
     use crate::ip::IPProtocol;
     use std::net::Ipv4Addr;
@@ -254,7 +254,7 @@ mod tests {
         [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8])
     }
 
-    fn get_icmp_redirect_data() -> (Vec<u8>, ICMPHeader) {
+    fn get_icmp_redirect_data() -> (Vec<u8>, IcmpHeader) {
         let bytes = [
             5, // type
             1, // code
@@ -275,7 +275,7 @@ mod tests {
 
         let (header, packet) = get_icmp_ipv4_header_and_packet();
 
-        let expected = ICMPHeader {
+        let expected = IcmpHeader {
             code: ICMPCode::Redirect(Redirect::Host),
             checksum: 0xaabb,
             data: ICMPData::Redirect{
@@ -288,7 +288,7 @@ mod tests {
         (bytes.to_vec(), expected)
     }
 
-    fn get_icmp_unreachable_data() -> (Vec<u8>, ICMPHeader) {
+    fn get_icmp_unreachable_data() -> (Vec<u8>, IcmpHeader) {
         let bytes = [
             3, // type
             1, // code
@@ -310,7 +310,7 @@ mod tests {
 
         let (header, packet) = get_icmp_ipv4_header_and_packet();
 
-        let expected = ICMPHeader {
+        let expected = IcmpHeader {
             code: ICMPCode::DestinationUnreachable(Unreachable::DestinationHostUnreachable),
             checksum: 0xaabb,
             data: ICMPData::Unreachable{
