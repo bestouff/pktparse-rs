@@ -160,7 +160,8 @@ fn parse_icmp_code(input: &[u8]) -> IResult<&[u8], IcmpCode> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[repr(transparent)] pub struct IcmpPayloadPacket([u8; 8]);
+#[repr(transparent)]
+pub struct IcmpPayloadPacket([u8; 8]);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -190,7 +191,7 @@ fn parse_ipv4_header_and_packet(input: &[u8]) -> IResult<&[u8], (IPv4Header, Icm
 
     let mut packet: [u8; 8] = Default::default();
     let (input, data) = take(8usize)(input)?;
-    packet.copy_from_slice(&data[..8]);
+    packet.copy_from_slice(data);
 
     Ok((input, (header, IcmpPayloadPacket(packet))))
 }
@@ -262,7 +263,9 @@ pub fn parse_icmp_header(input: &[u8]) -> IResult<&[u8], IcmpHeader> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_icmp_header, IcmpCode, IcmpData, IcmpHeader, Redirect, Unreachable, IcmpPayloadPacket};
+    use super::{
+        parse_icmp_header, IcmpCode, IcmpData, IcmpHeader, IcmpPayloadPacket, Redirect, Unreachable,
+    };
     use crate::ip::IPProtocol;
     use crate::ipv4::IPv4Header;
     use nom::{Err, Needed};
