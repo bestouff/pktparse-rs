@@ -1,7 +1,7 @@
 //! Handles parsing of ICMP
 
 use crate::ipv4::{address, parse_ipv4_header, IPv4Header};
-use nom::{bytes::streaming::take, number, Err, IResult, Needed};
+use nom::{bytes::streaming::take, number, IResult};
 use std::net::Ipv4Addr;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -185,10 +185,6 @@ pub enum IcmpData {
 
 fn parse_ipv4_header_and_packet(input: &[u8]) -> IResult<&[u8], (IPv4Header, IcmpPayloadPacket)> {
     let (input, header) = parse_ipv4_header(input)?;
-    if input.len() < 8 {
-        return Err(Err::Incomplete(Needed::Size(8 - input.len())));
-    }
-
     let mut packet: [u8; 8] = Default::default();
     let (input, data) = take(8usize)(input)?;
     packet.copy_from_slice(data);
@@ -375,7 +371,7 @@ mod tests {
 
         assert_eq!(
             parse_icmp_header(&bytes),
-            Err(Err::Incomplete(Needed::Size(1)))
+            Err(Err::Incomplete(Needed::new(1)))
         )
     }
 
@@ -392,7 +388,7 @@ mod tests {
 
         assert_eq!(
             parse_icmp_header(&bytes),
-            Err(Err::Incomplete(Needed::Size(1)))
+            Err(Err::Incomplete(Needed::new(1)))
         )
     }
 }
