@@ -1,7 +1,7 @@
 //! Handles parsing of ICMP
 
-use nom::{IResult, Err, Needed, number};
-use crate::ipv4::{IPv4Header, parse_ipv4_header, address};
+use crate::ipv4::{address, parse_ipv4_header, IPv4Header};
+use nom::{bytes::streaming::take, number, Err, IResult, Needed};
 use std::net::Ipv4Addr;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,7 +38,7 @@ pub enum Redirect {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TimeExceeded {
     TTL,
-    FragmentReassembly
+    FragmentReassembly,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -46,7 +46,7 @@ pub enum TimeExceeded {
 pub enum ParameterProblem {
     Pointer,
     MissingRequiredOption,
-    BadLength
+    BadLength,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,7 +56,7 @@ pub enum ExtendedEchoReply {
     MalformedQuery,
     NoSuchInterface,
     NoSuchTableEntry,
-    MupltipleInterfacesStatisfyQuery
+    MupltipleInterfacesStatisfyQuery,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,14 +76,12 @@ pub enum IcmpCode {
     TimestampReply,
     ExtendedEchoRequest,
     ExtendedEchoReply(ExtendedEchoReply),
-    Other(u16)
+    Other(u16),
 }
 
 impl From<u16> for IcmpCode {
     fn from(raw: u16) -> Self {
-        let bytes = raw.to_be_bytes();
-        let t = bytes[0];
-        let c = bytes[1];
+        let [t, c] = raw.to_be_bytes();
         match t {
             0x00 => Self::EchoReply,
             0x01 => Self::Reserved,
@@ -98,11 +96,15 @@ impl From<u16> for IcmpCode {
                 0x06 => Self::DestinationUnreachable(Unreachable::DestinationNetworkUnknown),
                 0x07 => Self::DestinationUnreachable(Unreachable::DestinationHostUnknown),
                 0x08 => Self::DestinationUnreachable(Unreachable::SourceHostIsolated),
-                0x09 => Self::DestinationUnreachable(Unreachable::NetworkAdministrativelyProhibited),
+                0x09 => {
+                    Self::DestinationUnreachable(Unreachable::NetworkAdministrativelyProhibited)
+                }
                 0x0A => Self::DestinationUnreachable(Unreachable::HostAdministrativelyProhibited),
                 0x0B => Self::DestinationUnreachable(Unreachable::NetworkUnreachableForTos),
                 0x0C => Self::DestinationUnreachable(Unreachable::HostUnreachableForTos),
-                0x0D => Self::DestinationUnreachable(Unreachable::CommunicationAdministrativelyProhibited),
+                0x0D => Self::DestinationUnreachable(
+                    Unreachable::CommunicationAdministrativelyProhibited,
+                ),
                 0x0E => Self::DestinationUnreachable(Unreachable::HostPrecedenceViolation),
                 0x0F => Self::DestinationUnreachable(Unreachable::PrecedentCutoffInEffect),
                 _ => Self::Other(raw),
@@ -141,9 +143,11 @@ impl From<u16> for IcmpCode {
                 0x01 => Self::ExtendedEchoReply(ExtendedEchoReply::MalformedQuery),
                 0x02 => Self::ExtendedEchoReply(ExtendedEchoReply::NoSuchInterface),
                 0x03 => Self::ExtendedEchoReply(ExtendedEchoReply::NoSuchTableEntry),
-                0x04 => Self::ExtendedEchoReply(ExtendedEchoReply::MupltipleInterfacesStatisfyQuery),
+                0x04 => {
+                    Self::ExtendedEchoReply(ExtendedEchoReply::MupltipleInterfacesStatisfyQuery)
+                }
                 _ => Self::Other(raw),
-            }
+            },
             _ => Self::Other(raw),
         }
     }
@@ -155,24 +159,40 @@ fn parse_icmp_code(input: &[u8]) -> IResult<&[u8], IcmpCode> {
     Ok((input, code.into()))
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[repr(transparent)] pub struct IcmpPayloadPacket([u8; 8]);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum IcmpData {
-    Unreachable { nexthop_mtu: u16, header: IPv4Header, packet: [u8; 8] },
-    Redirect {gateway: Ipv4Addr, header: IPv4Header, packet: [u8; 8] },
-    TimeExceeded {header: IPv4Header, packet: [u8; 8] },
+    Unreachable {
+        nexthop_mtu: u16,
+        header: IPv4Header,
+        packet: IcmpPayloadPacket,
+    },
+    Redirect {
+        gateway: Ipv4Addr,
+        header: IPv4Header,
+        packet: IcmpPayloadPacket,
+    },
+    TimeExceeded {
+        header: IPv4Header,
+        packet: IcmpPayloadPacket,
+    },
     None,
 }
 
-fn parse_ipv4_header_and_packet(input: &[u8]) -> IResult<&[u8], (IPv4Header, [u8; 8])> {
+fn parse_ipv4_header_and_packet(input: &[u8]) -> IResult<&[u8], (IPv4Header, IcmpPayloadPacket)> {
     let (input, header) = parse_ipv4_header(input)?;
     if input.len() < 8 {
         return Err(Err::Incomplete(Needed::Size(8 - input.len())));
     }
 
     let mut packet: [u8; 8] = Default::default();
-    packet.copy_from_slice(&input[..8]);
-    Ok((&input[8..], (header, packet)))
+    let (input, data) = take(8usize)(input)?;
+    packet.copy_from_slice(&data[..8]);
+
+    Ok((input, (header, IcmpPayloadPacket(packet))))
 }
 
 fn parse_icmp_unreachable_data(input: &[u8]) -> IResult<&[u8], IcmpData> {
@@ -180,21 +200,35 @@ fn parse_icmp_unreachable_data(input: &[u8]) -> IResult<&[u8], IcmpData> {
     let (input, nexthop_mtu) = number::streaming::be_u16(input)?;
     let (input, (header, packet)) = parse_ipv4_header_and_packet(input)?;
 
-    Ok((input, IcmpData::Unreachable{nexthop_mtu, header, packet}))
+    Ok((
+        input,
+        IcmpData::Unreachable {
+            nexthop_mtu,
+            header,
+            packet,
+        },
+    ))
 }
 
 fn parse_icmp_redirect_data(input: &[u8]) -> IResult<&[u8], IcmpData> {
     let (input, gateway) = address(input)?;
     let (input, (header, packet)) = parse_ipv4_header_and_packet(input)?;
 
-    Ok((input, IcmpData::Redirect{gateway, header, packet}))
+    Ok((
+        input,
+        IcmpData::Redirect {
+            gateway,
+            header,
+            packet,
+        },
+    ))
 }
 
 fn parse_icmp_timeexceeded_data(input: &[u8]) -> IResult<&[u8], IcmpData> {
     let (input, _) = number::streaming::be_u32(input)?;
     let (input, (header, packet)) = parse_ipv4_header_and_packet(input)?;
 
-    Ok((input, IcmpData::TimeExceeded{header, packet}))
+    Ok((input, IcmpData::TimeExceeded { header, packet }))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -221,37 +255,39 @@ pub fn parse_icmp_header(input: &[u8]) -> IResult<&[u8], IcmpHeader> {
         IcmpHeader {
             code,
             checksum,
-            data
-        })
-    )
+            data,
+        },
+    ))
 }
 
 #[cfg(test)]
 mod tests {
-    use super:: {IcmpHeader, IcmpCode, Unreachable, IcmpData, Redirect, parse_icmp_header};
-    use crate::ipv4::IPv4Header;
+    use super::{parse_icmp_header, IcmpCode, IcmpData, IcmpHeader, Redirect, Unreachable, IcmpPayloadPacket};
     use crate::ip::IPProtocol;
-    use std::net::Ipv4Addr;
+    use crate::ipv4::IPv4Header;
     use nom::{Err, Needed};
+    use std::net::Ipv4Addr;
 
     const EMPTY_SLICE: &'static [u8] = &[];
 
-    fn get_icmp_ipv4_header_and_packet() -> (IPv4Header, [u8; 8]) {
-        (IPv4Header {
-            version: 4,
-            ihl: 20,
-            tos: 0,
-            length: 1500,
-            id: 0x1ae6,
-            flags: 0x01,
-            fragment_offset: 0,
-            ttl: 64,
-            protocol: IPProtocol::ICMP,
-            chksum: 0x22ed,
-            source_addr: Ipv4Addr::new(10, 10, 1, 135),
-            dest_addr: Ipv4Addr::new(10, 10, 1, 180),
-        },
-        [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8])
+    fn get_icmp_ipv4_header_and_packet() -> (IPv4Header, IcmpPayloadPacket) {
+        (
+            IPv4Header {
+                version: 4,
+                ihl: 20,
+                tos: 0,
+                length: 1500,
+                id: 0x1ae6,
+                flags: 0x01,
+                fragment_offset: 0,
+                ttl: 64,
+                protocol: IPProtocol::ICMP,
+                chksum: 0x22ed,
+                source_addr: Ipv4Addr::new(10, 10, 1, 135),
+                dest_addr: Ipv4Addr::new(10, 10, 1, 180),
+            },
+            IcmpPayloadPacket([0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]),
+        )
     }
 
     fn get_icmp_redirect_data() -> (Vec<u8>, IcmpHeader) {
@@ -278,8 +314,8 @@ mod tests {
         let expected = IcmpHeader {
             code: IcmpCode::Redirect(Redirect::Host),
             checksum: 0xaabb,
-            data: IcmpData::Redirect{
-                gateway:  Ipv4Addr::new(10, 10, 1, 134),
+            data: IcmpData::Redirect {
+                gateway: Ipv4Addr::new(10, 10, 1, 134),
                 header: header,
                 packet: packet,
             },
@@ -294,7 +330,7 @@ mod tests {
             1, // code
             0xaa, 0xbb, // checksum
             0x00, 0x00, // unused
-            0x00, 0x7, // Next-hop MTU
+            0x00, 0x7,  // Next-hop MTU
             0x45, /* IP version and length = 20 */
             0x00, /* Differentiated services field */
             0x05, 0xdc, /* Total length */
@@ -313,7 +349,7 @@ mod tests {
         let expected = IcmpHeader {
             code: IcmpCode::DestinationUnreachable(Unreachable::DestinationHostUnreachable),
             checksum: 0xaabb,
-            data: IcmpData::Unreachable{
+            data: IcmpData::Unreachable {
                 nexthop_mtu: 7,
                 header: header,
                 packet: packet,
@@ -334,7 +370,10 @@ mod tests {
         let (mut bytes, _) = get_icmp_unreachable_data();
         bytes.pop();
 
-        assert_eq!(parse_icmp_header(&bytes), Err(Err::Incomplete(Needed::Size(1))))
+        assert_eq!(
+            parse_icmp_header(&bytes),
+            Err(Err::Incomplete(Needed::Size(1)))
+        )
     }
 
     #[test]
@@ -348,6 +387,9 @@ mod tests {
         let (mut bytes, _) = get_icmp_redirect_data();
         bytes.pop();
 
-        assert_eq!(parse_icmp_header(&bytes), Err(Err::Incomplete(Needed::Size(1))))
+        assert_eq!(
+            parse_icmp_header(&bytes),
+            Err(Err::Incomplete(Needed::Size(1)))
+        )
     }
 }
